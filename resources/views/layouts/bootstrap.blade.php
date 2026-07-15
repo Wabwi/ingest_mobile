@@ -2,7 +2,7 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>{{ config('app.name', 'Ingest') }} - Track Your Health</title>
@@ -74,7 +74,12 @@
             position: sticky;
             top: 0;
             z-index: 1030;
-            padding-top: calc(env(safe-area-inset-top, 0px) + 1rem) !important;
+        }
+
+        @media (max-width: 991.98px) {
+            .glass-navbar {
+                padding-top: calc(env(safe-area-inset-top, 28px) + 0.75rem) !important;
+            }
         }
 
         .nav-link-custom {
