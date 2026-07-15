@@ -74,6 +74,7 @@
             position: sticky;
             top: 0;
             z-index: 1030;
+            padding-top: calc(env(safe-area-inset-top, 0px) + 1rem) !important;
         }
 
         .nav-link-custom {
