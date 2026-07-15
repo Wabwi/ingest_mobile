@@ -43,13 +43,15 @@ class MobileSetupController extends Controller
                 User::truncate();
 
                 // Create the user locally with the exact password hash from the server
-                $localUser = User::create([
+                $localUser = new User();
+                $localUser->setRawAttributes([
                     'name' => $userData['name'],
                     'email' => $userData['email'],
                     'password' => $userData['password_hash'], // Keep password hashed locally
                     'api_token' => $userData['api_token'],
                     'server_url' => $serverUrl,
                 ]);
+                $localUser->save();
 
                 // Authenticate the user locally
                 auth()->login($localUser, true);
