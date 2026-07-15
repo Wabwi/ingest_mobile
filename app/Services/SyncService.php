@@ -13,7 +13,7 @@ class SyncService
     /**
      * Synchronize unsynced local logs with the remote web application.
      */
-    public function sync(): array
+    public function sync(int $timeout = 10): array
     {
         $user = User::first();
         if (!$user || !$user->api_token || !$user->server_url) {
@@ -26,14 +26,6 @@ class SyncService
         // Fetch unsynced logs
         $unsyncedMeals = Meal::where('synced', false)->get();
         $unsyncedPoops = BowelMovement::where('synced', false)->get();
-
-        if ($unsyncedMeals->isEmpty() && $unsyncedPoops->isEmpty()) {
-            return [
-                'success' => true,
-                'synced_count' => 0,
-                'message' => 'All logs are already up to date.'
-            ];
-        }
 
         // Clean and prepare the server endpoint
         $baseUrl = rtrim($user->server_url, '/');
@@ -62,7 +54,7 @@ class SyncService
         try {
             // Dispatch the backup request
             $response = Http::withToken($user->api_token)
-                ->timeout(10)
+                ->timeout($timeout)
                 ->post($endpoint, $payload);
 
             if ($response->successful()) {
@@ -77,15 +69,58 @@ class SyncService
                     BowelMovement::whereIn('uuid', $syncedPoops)->update(['synced' => true]);
                 }
 
+                // Process pulled logs from the server
+                $allMeals = $response->json('all_meals', []);
+                $allPoops = $response->json('all_bowel_movements', []);
+
+                $pulledCount = 0;
+
+                foreach ($allMeals as $mealData) {
+                    $exists = Meal::where('uuid', $mealData['uuid'])->exists();
+                    if (!$exists) {
+                        Meal::create([
+                            'uuid' => $mealData['uuid'],
+                            'user_id' => $user->id,
+                            'meal_type' => $mealData['meal_type'],
+                            'description' => $mealData['description'],
+                            'eaten_at' => \Carbon\Carbon::parse($mealData['eaten_at']),
+                            'synced' => true,
+                        ]);
+                        $pulledCount++;
+                    }
+                }
+
+                foreach ($allPoops as $bmData) {
+                    $exists = BowelMovement::where('uuid', $bmData['uuid'])->exists();
+                    if (!$exists) {
+                        BowelMovement::create([
+                            'uuid' => $bmData['uuid'],
+                            'user_id' => $user->id,
+                            'logged_at' => \Carbon\Carbon::parse($bmData['logged_at']),
+                            'bristol_type' => $bmData['bristol_type'],
+                            'notes' => $bmData['notes'],
+                            'synced' => true,
+                        ]);
+                        $pulledCount++;
+                    }
+                }
+
                 $totalSynced = count($syncedMeals) + count($syncedPoops);
 
                 // Update the sync timestamp in session so layouts can display it
                 session(['last_sync_at' => now()->format('h:i A')]);
 
+                $msg = "Successfully backed up {$totalSynced} local entries.";
+                if ($pulledCount > 0) {
+                    $msg .= " Downloaded {$pulledCount} new entries from server.";
+                } else if ($totalSynced === 0) {
+                    $msg = "All logs are up to date.";
+                }
+
                 return [
                     'success' => true,
-                    'synced_count' => $totalSynced,
-                    'message' => "Successfully backed up {$totalSynced} local entries."
+                    'synced_count' => $totalSynced + $pulledCount,
+                    'message' => $msg
                 ];
             }
 

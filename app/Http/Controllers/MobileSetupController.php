@@ -56,6 +56,13 @@ class MobileSetupController extends Controller
                 // Authenticate the user locally
                 auth()->login($localUser, true);
 
+                // Run an initial sync to fetch historical online data
+                try {
+                    resolve(SyncService::class)->sync();
+                } catch (\Exception $syncEx) {
+                    \Illuminate\Support\Facades\Log::warning('Initial setup sync failed: ' . $syncEx->getMessage());
+                }
+
                 return redirect()->route('dashboard')->with('success', 'Mobile setup completed! You are now logged in and can use the app offline.');
             }
 

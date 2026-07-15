@@ -16,6 +16,13 @@ class TrackerController extends Controller
     public function index()
     {
         $user = auth()->user();
+        // Attempt automatic background synchronization on dashboard load with a short 2-second timeout
+        try {
+            resolve(\App\Services\SyncService::class)->sync(2);
+        } catch (\Exception $e) {
+            // Ignore connection/timeout errors during index load
+        }
+
         $now = Carbon::now('Africa/Nairobi');
         $hour = $now->hour;
 
