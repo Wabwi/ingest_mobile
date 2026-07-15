@@ -39,8 +39,10 @@ class MobileSetupController extends Controller
             if ($response->successful() && $response->json('success')) {
                 $userData = $response->json('user');
 
-                // Delete any old users to ensure a clean local setup
+                // Delete any old users and logs to ensure a clean local setup
                 User::truncate();
+                \App\Models\Meal::truncate();
+                \App\Models\BowelMovement::truncate();
 
                 // Create the user locally with the exact password hash from the server
                 $localUser = new User();
