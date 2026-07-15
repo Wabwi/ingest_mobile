@@ -62,7 +62,7 @@ class MobileSetupController extends Controller
 
         } catch (\Exception $e) {
             return back()->withErrors([
-                'server_url' => 'Could not connect to the server at ' . parse_url($serverUrl, PHP_URL_HOST) . '. Please ensure you are connected to the internet.'
+                'server_url' => 'Could not connect to the server at ' . parse_url($serverUrl, PHP_URL_HOST) . '. Error: ' . $e->getMessage()
             ])->withInput();
         }
     }
