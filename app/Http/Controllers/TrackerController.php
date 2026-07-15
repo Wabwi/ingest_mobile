@@ -145,6 +145,7 @@ class TrackerController extends Controller
             $meals = $mealsQuery->get()->map(function ($meal) {
                 return [
                     'id' => $meal->id,
+                    'uuid' => $meal->uuid,
                     'log_type' => 'meal',
                     'timestamp' => $meal->eaten_at,
                     'title' => ucfirst($meal->meal_type),
@@ -160,6 +161,7 @@ class TrackerController extends Controller
             $poops = $poopsQuery->get()->map(function ($poop) {
                 return [
                     'id' => $poop->id,
+                    'uuid' => $poop->uuid,
                     'log_type' => 'bowel_movement',
                     'timestamp' => $poop->logged_at,
                     'title' => 'Bowel Movement (Bristol Type ' . $poop->bristol_type . ')',
@@ -185,5 +187,91 @@ class TrackerController extends Controller
         ];
 
         return view('history', compact('timeline', 'typeFilter', 'startDate', 'endDate', 'bristolDescriptions'));
+    }
+
+    public function updateMeal(Request $request, $uuid)
+    {
+        $meal = auth()->user()->meals()->where('uuid', $uuid)->firstOrFail();
+
+        $validated = $request->validate([
+            'meal_type' => 'required|string|in:breakfast,lunch,dinner,snack',
+            'description' => 'required|string|max:1000',
+            'eaten_at' => 'required|date',
+        ]);
+
+        $meal->update([
+            'meal_type' => $validated['meal_type'],
+            'description' => $validated['description'],
+            'eaten_at' => Carbon::parse($validated['eaten_at'], 'Africa/Nairobi'),
+            'synced' => false,
+        ]);
+
+        // Attempt automatic background synchronization
+        try {
+            resolve(\App\Services\SyncService::class)->sync();
+        } catch (\Exception $e) {
+            // Ignore connection errors
+        }
+
+        return redirect()->route('history')->with('success', 'Meal updated successfully!');
+    }
+
+    public function destroyMeal($uuid)
+    {
+        $meal = auth()->user()->meals()->where('uuid', $uuid)->firstOrFail();
+        $meal->update(['synced' => false]);
+        $meal->delete();
+
+        // Attempt automatic background synchronization
+        try {
+            resolve(\App\Services\SyncService::class)->sync();
+        } catch (\Exception $e) {
+            // Ignore connection errors
+        }
+
+        return redirect()->route('history')->with('success', 'Meal deleted successfully!');
+    }
+
+    public function updateBowelMovement(Request $request, $uuid)
+    {
+        $poop = auth()->user()->bowelMovements()->where('uuid', $uuid)->firstOrFail();
+
+        $validated = $request->validate([
+            'bristol_type' => 'required|integer|between:1,7',
+            'notes' => 'nullable|string|max:1000',
+            'logged_at' => 'required|date',
+        ]);
+
+        $poop->update([
+            'bristol_type' => $validated['bristol_type'],
+            'notes' => $validated['notes'],
+            'logged_at' => Carbon::parse($validated['logged_at'], 'Africa/Nairobi'),
+            'synced' => false,
+        ]);
+
+        // Attempt automatic background synchronization
+        try {
+            resolve(\App\Services\SyncService::class)->sync();
+        } catch (\Exception $e) {
+            // Ignore connection errors
+        }
+
+        return redirect()->route('history')->with('success', 'Bowel movement updated successfully!');
+    }
+
+    public function destroyBowelMovement($uuid)
+    {
+        $poop = auth()->user()->bowelMovements()->where('uuid', $uuid)->firstOrFail();
+        $poop->update(['synced' => false]);
+        $poop->delete();
+
+        // Attempt automatic background synchronization
+        try {
+            resolve(\App\Services\SyncService::class)->sync();
+        } catch (\Exception $e) {
+            // Ignore connection errors
+        }
+
+        return redirect()->route('history')->with('success', 'Bowel movement deleted successfully!');
     }
 }

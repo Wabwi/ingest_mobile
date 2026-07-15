@@ -16,7 +16,11 @@ Route::post('/mobile-setup', [MobileSetupController::class, 'submit'])->name('mo
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [TrackerController::class, 'index'])->name('dashboard');
     Route::post('/meals', [TrackerController::class, 'storeMeal'])->name('meals.store');
+    Route::post('/meals/{uuid}/update', [TrackerController::class, 'updateMeal'])->name('meals.update');
+    Route::post('/meals/{uuid}/delete', [TrackerController::class, 'destroyMeal'])->name('meals.destroy');
     Route::post('/bowel-movements', [TrackerController::class, 'storeBowelMovement'])->name('bowel-movements.store');
+    Route::post('/bowel-movements/{uuid}/update', [TrackerController::class, 'updateBowelMovement'])->name('bowel-movements.update');
+    Route::post('/bowel-movements/{uuid}/delete', [TrackerController::class, 'destroyBowelMovement'])->name('bowel-movements.destroy');
     Route::get('/history', [TrackerController::class, 'history'])->name('history');
     
     // Trigger sync route

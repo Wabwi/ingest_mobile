@@ -177,11 +177,20 @@
                                             <span>Bowel Movement</span>
                                         @endif
                                     </h5>
-                                    @if($item['log_type'] === 'meal')
-                                        <span class="badge text-uppercase bg-indigo py-1 px-2" style="background-color: var(--primary-accent); font-size: 0.75rem;">Food</span>
-                                    @else
-                                        <span class="badge bg-warning text-dark py-1 px-2" style="background-color: var(--poop-accent); color: #fff !important; font-size: 0.75rem;">Poop</span>
-                                    @endif
+                                    <div class="d-flex align-items-center gap-3">
+                                        @if($item['log_type'] === 'meal')
+                                            <span class="badge text-uppercase bg-indigo py-1 px-2" style="background-color: var(--primary-accent); font-size: 0.75rem;">Food</span>
+                                        @else
+                                            <span class="badge bg-warning text-dark py-1 px-2" style="background-color: var(--poop-accent); color: #fff !important; font-size: 0.75rem;">Poop</span>
+                                        @endif
+
+                                        <button class="btn btn-sm btn-link p-0 text-muted lh-1" onclick="openEditModal('{{ $item['log_type'] }}', '{{ $item['uuid'] }}', '{{ $item['meta'] }}', '{{ addslashes($item['description'] ?? '') }}', '{{ $item['timestamp']->timezone('Africa/Nairobi')->format('Y-m-d\TH:i') }}', '{{ $item['title'] }}')" title="Edit"><i class="bi bi-pencil-square fs-6"></i></button>
+
+                                        <form action="{{ route($item['log_type'] === 'meal' ? 'meals.destroy' : 'bowel-movements.destroy', $item['uuid']) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this log?')">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-link p-0 text-danger lh-1" title="Delete"><i class="bi bi-trash fs-6"></i></button>
+                                        </form>
+                                    </div>
                                 </div>
 
                                 @if($item['log_type'] === 'meal')
@@ -204,6 +213,85 @@
         </div>
     </div>
 </div>
+
+<!-- Edit Meal Modal -->
+<div class="modal fade" id="editMealModal" tabindex="-1" aria-labelledby="editMealModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-white border-secondary" style="border-radius: 16px; background-color: #1a1a1a !important; border: 1px solid rgba(255,255,255,0.08) !important;">
+            <div class="modal-header border-bottom border-secondary border-opacity-25">
+                <h5 class="modal-title fw-bold" id="editMealModalLabel">Edit Meal Log</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editMealForm" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_meal_type" class="form-label-custom">Meal Type</label>
+                        <select name="meal_type" id="edit_meal_type" class="form-select form-control-custom" style="background-color: #222; border-color: rgba(255,255,255,0.1); color: #fff;">
+                            <option value="breakfast">Breakfast</option>
+                            <option value="lunch">Lunch</option>
+                            <option value="dinner">Dinner</option>
+                            <option value="snack">Snack</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_meal_description" class="form-label-custom">What did you eat?</label>
+                        <textarea name="description" id="edit_meal_description" class="form-control form-control-custom" rows="3" style="background-color: #222; border-color: rgba(255,255,255,0.1); color: #fff;" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_meal_eaten_at" class="form-label-custom">Eaten At</label>
+                        <input type="datetime-local" name="eaten_at" id="edit_meal_eaten_at" class="form-control form-control-custom" style="background-color: #222; border-color: rgba(255,255,255,0.1); color: #fff;" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-secondary border-opacity-25">
+                    <button type="button" class="btn btn-outline-secondary border-secondary border-opacity-50" data-bs-dismiss="modal" style="color: #ccc;">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="background-color: var(--primary-accent); border: none;">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Bowel Movement Modal -->
+<div class="modal fade" id="editBowelMovementModal" tabindex="-1" aria-labelledby="editBowelMovementModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-white border-secondary" style="border-radius: 16px; background-color: #1a1a1a !important; border: 1px solid rgba(255,255,255,0.08) !important;">
+            <div class="modal-header border-bottom border-secondary border-opacity-25">
+                <h5 class="modal-title fw-bold" id="editBowelMovementModalLabel">Edit Bowel Movement</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editBowelMovementForm" method="POST">
+                @csrf
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_bristol_type" class="form-label-custom">Bristol Stool Type</label>
+                        <select name="bristol_type" id="edit_bristol_type" class="form-select form-control-custom" style="background-color: #222; border-color: rgba(255,255,255,0.1); color: #fff;">
+                            <option value="1">Type 1: Separate hard lumps (constipated)</option>
+                            <option value="2">Type 2: Sausage-shaped but lumpy</option>
+                            <option value="3">Type 3: Sausage-shaped with cracks</option>
+                            <option value="4">Type 4: Smooth and soft (optimal)</option>
+                            <option value="5">Type 5: Soft blobs with clear-cut edges</option>
+                            <option value="6">Type 6: Fluffy pieces, mushy</option>
+                            <option value="7">Type 7: Watery, entirely liquid (diarrhea)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_notes" class="form-label-custom">Notes / Symptoms</label>
+                        <textarea name="notes" id="edit_notes" class="form-control form-control-custom" style="background-color: #222; border-color: rgba(255,255,255,0.1); color: #fff;" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_logged_at" class="form-label-custom">Logged At</label>
+                        <input type="datetime-local" name="logged_at" id="edit_logged_at" class="form-control form-control-custom" style="background-color: #222; border-color: rgba(255,255,255,0.1); color: #fff;" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-secondary border-opacity-25">
+                    <button type="button" class="btn btn-outline-secondary border-secondary border-opacity-50" data-bs-dismiss="modal" style="color: #ccc;">Cancel</button>
+                    <button type="submit" class="btn btn-warning text-dark" style="background-color: var(--poop-accent); border: none;">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
 @section('scripts')
@@ -211,6 +299,28 @@
     function setTypeFilter(type) {
         document.getElementById('typeFilterInput').value = type;
         document.getElementById('filterForm').submit();
+    }
+
+    function openEditModal(logType, uuid, meta, description, timestamp, title) {
+        if (logType === 'meal') {
+            const form = document.getElementById('editMealForm');
+            form.action = `/meals/${uuid}/update`;
+            document.getElementById('edit_meal_type').value = title.toLowerCase();
+            document.getElementById('edit_meal_description').value = description;
+            document.getElementById('edit_meal_eaten_at').value = timestamp;
+
+            const modal = new bootstrap.Modal(document.getElementById('editMealModal'));
+            modal.show();
+        } else {
+            const form = document.getElementById('editBowelMovementForm');
+            form.action = `/bowel-movements/${uuid}/update`;
+            document.getElementById('edit_bristol_type').value = meta;
+            document.getElementById('edit_notes').value = description;
+            document.getElementById('edit_logged_at').value = timestamp;
+
+            const modal = new bootstrap.Modal(document.getElementById('editBowelMovementModal'));
+            modal.show();
+        }
     }
 </script>
 @endsection

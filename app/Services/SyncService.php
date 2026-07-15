@@ -23,9 +23,9 @@ class SyncService
             ];
         }
 
-        // Fetch unsynced logs
-        $unsyncedMeals = Meal::where('synced', false)->get();
-        $unsyncedPoops = BowelMovement::where('synced', false)->get();
+        // Fetch unsynced logs (including soft-deleted ones)
+        $unsyncedMeals = Meal::withTrashed()->where('synced', false)->get();
+        $unsyncedPoops = BowelMovement::withTrashed()->where('synced', false)->get();
 
         // Clean and prepare the server endpoint
         $baseUrl = rtrim($user->server_url, '/');
@@ -39,6 +39,7 @@ class SyncService
                     'meal_type' => $meal->meal_type,
                     'description' => $meal->description,
                     'eaten_at' => $meal->eaten_at->toIso8601String(),
+                    'deleted_at' => $meal->deleted_at ? $meal->deleted_at->toIso8601String() : null,
                 ];
             })->toArray(),
             'bowel_movements' => $unsyncedPoops->map(function ($poop) {
@@ -47,6 +48,7 @@ class SyncService
                     'logged_at' => $poop->logged_at->toIso8601String(),
                     'bristol_type' => $poop->bristol_type,
                     'notes' => $poop->notes,
+                    'deleted_at' => $poop->deleted_at ? $poop->deleted_at->toIso8601String() : null,
                 ];
             })->toArray(),
         ];
@@ -61,23 +63,26 @@ class SyncService
                 $syncedMeals = $response->json('synced_meals', []);
                 $syncedPoops = $response->json('synced_bowel_movements', []);
 
-                // Update the local database synced flags
+                // Update the local database synced flags (including soft-deleted ones)
                 if (!empty($syncedMeals)) {
-                    Meal::whereIn('uuid', $syncedMeals)->update(['synced' => true]);
+                    Meal::withTrashed()->whereIn('uuid', $syncedMeals)->update(['synced' => true]);
                 }
                 if (!empty($syncedPoops)) {
-                    BowelMovement::whereIn('uuid', $syncedPoops)->update(['synced' => true]);
+                    BowelMovement::withTrashed()->whereIn('uuid', $syncedPoops)->update(['synced' => true]);
                 }
 
                 // Process pulled logs from the server
                 $allMeals = $response->json('all_meals', []);
                 $allPoops = $response->json('all_bowel_movements', []);
+                $deletedMeals = $response->json('deleted_meals', []);
+                $deletedPoops = $response->json('deleted_bowel_movements', []);
 
                 $pulledCount = 0;
 
+                // Handle active meals
                 foreach ($allMeals as $mealData) {
-                    $exists = Meal::where('uuid', $mealData['uuid'])->exists();
-                    if (!$exists) {
+                    $meal = Meal::withTrashed()->where('uuid', $mealData['uuid'])->first();
+                    if (!$meal) {
                         Meal::create([
                             'uuid' => $mealData['uuid'],
                             'user_id' => $user->id,
@@ -87,12 +92,20 @@ class SyncService
                             'synced' => true,
                         ]);
                         $pulledCount++;
+                    } else if ($meal->synced) {
+                        // Update if the local record is synced (unmodified locally)
+                        $meal->update([
+                            'meal_type' => $mealData['meal_type'],
+                            'description' => $mealData['description'],
+                            'eaten_at' => \Carbon\Carbon::parse($mealData['eaten_at']),
+                        ]);
                     }
                 }
 
+                // Handle active bowel movements
                 foreach ($allPoops as $bmData) {
-                    $exists = BowelMovement::where('uuid', $bmData['uuid'])->exists();
-                    if (!$exists) {
+                    $bm = BowelMovement::withTrashed()->where('uuid', $bmData['uuid'])->first();
+                    if (!$bm) {
                         BowelMovement::create([
                             'uuid' => $bmData['uuid'],
                             'user_id' => $user->id,
@@ -102,7 +115,22 @@ class SyncService
                             'synced' => true,
                         ]);
                         $pulledCount++;
+                    } else if ($bm->synced) {
+                        // Update if the local record is synced (unmodified locally)
+                        $bm->update([
+                            'logged_at' => \Carbon\Carbon::parse($bmData['logged_at']),
+                            'bristol_type' => $bmData['bristol_type'],
+                            'notes' => $bmData['notes'],
+                        ]);
                     }
+                }
+
+                // Process deleted records (hard-delete them locally to free space)
+                if (!empty($deletedMeals)) {
+                    Meal::withTrashed()->whereIn('uuid', $deletedMeals)->forceDelete();
+                }
+                if (!empty($deletedPoops)) {
+                    BowelMovement::withTrashed()->whereIn('uuid', $deletedPoops)->forceDelete();
                 }
 
                 $totalSynced = count($syncedMeals) + count($syncedPoops);
